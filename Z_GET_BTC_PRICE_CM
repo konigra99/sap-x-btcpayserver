@@ -1,0 +1,104 @@
+FUNCTION Z_GET_BTC_PRICE_CMC.
+*"----------------------------------------------------------------------
+*"*"Lokale Schnittstelle:
+*"  EXPORTING
+*"     REFERENCE(LV_PRICE_3) TYPE  Z_AMOUNT
+*"----------------------------------------------------------------------
+
+
+
+Data: o_client TYPE REF TO if_http_client,
+      lv_http_status_1 TYPE i,
+      lv_status_text_1 TYPE string,
+      lv_uri            TYPE string,
+      rate type Z_AMOUNT.
+
+CALL METHOD cl_http_client=>create_by_destination
+      EXPORTING
+        destination = '*YOUR_DESTINATOIN*" " < Insert your destination here.
+      IMPORTING
+        client      = o_client
+      EXCEPTIONS
+        argument_not_found = 1
+        plugin_not_active  = 2
+        internal_error     = 3
+        others             = 4.
+
+    IF sy-subrc <> 0.
+      o_client->close( ).
+      RETURN. " Exit if there's an error
+    ENDIF.
+
+    " Setting specific path or adding parameters to the URL
+        lv_uri = '/api/rates?storeId=*StoreId'. "< Your StoreID must be inserted here.
+        o_client->request->set_header_field( name = '~request_uri' value = lv_uri ).
+
+
+    " Make a GET request
+      o_client->request->set_method( if_http_request=>co_request_method_get ).
+      o_client->send( timeout = if_http_client=>co_timeout_default ).
+      o_client->receive( ).
+
+if o_client is bound.
+
+* set http_method
+
+o_client->request->set_method( if_http_request=>co_request_method_get ).
+
+
+CALL METHOD o_client->send
+        EXCEPTIONS
+                      http_communication_failure = 1
+                        http_invalid_state         = 2
+                          http_processing_failed     = 3
+                            http_invalid_timeout       = 4
+                              OTHERS                     = 5.
+
+WAIT UP TO 1 SECONDS.
+
+o_client->receive( ).
+
+o_client->response->get_status( IMPORTING
+                                  code = lv_http_status_1
+                                  reason = lv_status_text_1 ).
+
+if lv_http_status_1 = 200.
+
+*** Daten werden hier abgeholt und in die Variable lv_result geschrieben
+    DATA(lv_result_1) = o_client->response->get_cdata( ).
+
+*** Hier werden die Daten mittels Reader gelesen.
+    DATA(lo_reader_1) = cl_sxml_string_reader=>create( cl_abap_codepage=>convert_to( lv_result_1 ) ).
+
+    DO.
+      DATA(lo_node_1) = lo_reader_1->read_next_node( ).
+      IF lo_node_1 IS INITIAL.
+        EXIT.
+      ENDIF.
+
+      IF lo_node_1->type = if_sxml_node=>co_nt_element_open.
+        "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+        DATA(lo_value_1) = CAST if_sxml_open_element( lo_node_1 )->get_attribute_value( `name` ).
+
+        "Bezeichner des Keys
+        IF lo_value_1 IS BOUND AND lo_value_1->get_value( ) = `rate`.
+          DATA(lo_value_node_1) = CAST if_sxml_value( lo_reader_1->read_next_node( ) ).
+          "der Wert zum Key
+          DATA(lv_price) = lo_value_node_1->get_value( ).
+          EXIT.
+        ENDIF.
+      ENDIF.
+    ENDDO.
+endif.
+
+endif.
+
+lv_price_3 = lv_price.
+*lv_price_3 = round( val = lv_price dec = 2 ).
+
+message 'The price of 1 bitcoin is right now:' && ` ` && lv_price && ' USD.' type 'I'.
+
+o_client->close( ).
+
+
+ENDFUNCTION.
