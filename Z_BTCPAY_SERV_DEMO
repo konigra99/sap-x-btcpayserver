@@ -1,0 +1,1118 @@
+*&---------------------------------------------------------------------*
+*& Report Z_BTCPAY_SERV_DEMO
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_BTCPAY_SERV_DEMO.
+
+TABLES: SSCRFIELDS.
+
+*** Tabellen Deklaration Node Balance ***
+
+TYPES: BEGIN OF ty_offchain,
+          opening type string,
+          local type string,
+          remote type string,
+          closed type string,
+       END OF ty_offchain.
+
+TYPES: BEGIN OF ty_onchain,
+          confirmed type string,
+          unconfirmed type string,
+          reserved type string,
+       END OF ty_onchain.
+
+TYPES: BEGIN OF ty_balance,
+          onchain TYPE ty_onchain,
+          offchain TYPE ty_offchain,
+       END OF ty_balance.
+
+Data: lv_http_status type i,
+      lv_status_text type string,
+      lt_balance type ty_balance,
+      confirmed type string.
+
+DATA: gv_ucomm TYPE sy-ucomm.
+DATA: gt_ucomm TYPE TABLE OF sy-ucomm.
+DATA MY_UCOMM TYPE SY-UCOMM.
+
+DATA: lv_pricee type Z_AMOUNT,
+      lv_price_3 type Z_AMOUNT,
+      balance_in_usd type p DECIMALS 2,
+      balance_in_usdln type p DECIMALS 2.
+
+DATA: stamp_1 TYPE TIMESTAMP.
+
+***  begin ty_metadata tabelle ***
+
+TYPES: BEGIN OF ty_metadata,
+         item_desc TYPE yinv_tab-orderID,
+         buyer_email    TYPE Z_EMAIL,
+         orderUrl  TYPE yinv_tab-orderUrl,
+       END OF ty_metadata.
+
+TYPES: BEGIN OF ty_YINV_TAB,
+
+         metadata TYPE ty_metadata,
+         amount   TYPE z_metadata,
+         currency     TYPE z_metadata,
+         link     TYPE string,
+         paid     TYPE abap_bool,
+       END OF ty_YINV_TAB.
+
+DATA: lt_metadata TYPE TABLE OF ty_YINV_TAB,
+      it_YINV_TAB TYPE TABLE OF ty_YINV_TAB,
+      wa_YINV_TAB TYPE ty_YINV_TAB.
+
+
+*** end of ty_metadata tabelle***
+
+
+*** Grid Table Neu ***
+
+TYPES: BEGIN OF ty_invoice_response,
+         INV_ID      type count,
+         id           TYPE z_invoice_id_3,
+*         storeID      TYPE z_metadata,
+         amount       TYPE z_metadata,
+         currency     TYPE z_metadata,
+         checkoutLink TYPE z_metadata,
+         status       TYPE z_metadata,
+         buyer_email        TYPE z_email,
+       END OF ty_invoice_response.
+
+DATA: ty_invoice_response TYPE TABLE OF yinvoice_tab with key id,
+      ty_invoice_tab      TYPE TABLE OF yinvoice_tab,
+      it_YINVOICE_TAB     TYPE TABLE OF yinvoice_tab,
+      wa_invoice          TYPE ty_invoice_response.
+
+
+*** This is the begin of the interface ***
+
+START-OF-SELECTION.
+
+SELECTION-SCREEN BEGIN OF BLOCK a1 WITH FRAME TITLE text-001.
+
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN POSITION 36.
+SELECTION-SCREEN COMMENT (20) text-002 FOR FIELD Wallet.
+*SELECTION-SCREEN POSITION 20.
+
+SELECTION-SCREEN POSITION 60.
+SELECTION-SCREEN COMMENT (10) text-003 FOR FIELD acc_bal.
+
+
+  SELECTION-SCREEN END OF LINE.
+
+*SELECTION-SCREEN SKIP 1.
+
+*** Line 1
+SELECTION-SCREEN BEGIN OF LINE.
+
+SELECTION-SCREEN POSITION 1.
+SELECTION-SCREEN COMMENT (10) text-005 FOR FIELD Wallet.
+
+SELECTION-SCREEN POSITION 33.
+PARAMETERS Wallet type char17.
+SELECTION-SCREEN POSITION 52.
+PARAMETERS acc_bal type char19.
+
+SELECTION-SCREEN END OF LINE.
+
+
+*** Zeile 2
+
+SELECTION-SCREEN BEGIN OF LINE.
+
+SELECTION-SCREEN POSITION 1.
+SELECTION-SCREEN COMMENT (10) text-004 FOR FIELD local.
+
+SELECTION-SCREEN POSITION 33.
+PARAMETERS local type char17.
+SELECTION-SCREEN POSITION 52.
+PARAMETERS USDLN type char19.
+
+SELECTION-SCREEN END OF LINE.
+
+SELECTION-SCREEN BEGIN OF LINE.
+*PARAMETERS remote type char17.
+
+SELECTION-SCREEN POSITION 1.
+SELECTION-SCREEN COMMENT (27) text-006 FOR FIELD btc_usd.
+
+SELECTION-SCREEN POSITION 33.
+PARAMETERS btc_usd type char17.
+*SELECTION-SCREEN POSITION 52.
+*PARAMETERS TIME type char19.
+
+SELECTION-SCREEN POSITION 54.
+SELECTION-SCREEN COMMENT (19) text.
+
+
+SELECTION-SCREEN END OF LINE.
+
+
+*** BUTTONS IN SCREEN BLOCK 1***
+
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN PUSHBUTTON 1(15) text-010 USER-COMMAND button_001.
+SELECTION-SCREEN PUSHBUTTON 17(15) text-020 USER-COMMAND button_002.
+SELECTION-SCREEN PUSHBUTTON 33(17) text-030 USER-COMMAND button_003.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK a1.
+
+*** BUTTONS IN SCREEN BLOCK 1***
+
+*** BLOCK 2 ***
+
+SELECTION-SCREEN BEGIN OF BLOCK a2 WITH FRAME TITLE text-007.
+
+*SELECTION-SCREEN BEGIN OF LINE.
+*SELECTION-SCREEN PUSHBUTTON 1(20) text-040 USER-COMMAND button_004.
+*SELECTION-SCREEN END OF LINE.
+
+*** Fields ***
+
+PARAMETERS:   invoice TYPE c length 16.
+PARAMETERS:   amount TYPE c length 16.
+PARAMETERS:   currency TYPE c length 16.
+PARAMETERS:   email TYPE c length 30.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN PUSHBUTTON 33(16) TEXT-040 USER-COMMAND button_004.
+
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN BEGIN OF LINE.
+ SELECTION-SCREEN PUSHBUTTON 33(16) TEXT-050 USER-COMMAND button_005.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN BEGIN OF LINE.
+ SELECTION-SCREEN PUSHBUTTON 33(16) TEXT-060 USER-COMMAND button_006.
+SELECTION-SCREEN END OF LINE.
+
+
+*** End of Fields ***
+
+**SELECTION-SCREEN END OF LINE.
+
+SELECTION-SCREEN SKIP 2.
+
+SELECTION-SCREEN END OF BLOCK a2.
+
+*** End of BLOCK 2 ***
+
+
+
+*** GRID auf der rechten Seite Deklaration Beginn***
+
+DATA:
+docking TYPE REF TO cl_gui_docking_container .
+
+INCLUDE <icon>.
+
+DATA: ok_code                LIKE sy-ucomm,
+
+*** Declaration and reference to data table
+      gt_ty_invoice_response TYPE TABLE OF yinvoice_tab,
+
+*** Declaration and reference to data table
+      g_repid                LIKE sy-repid,
+      g_max                  TYPE i VALUE 100,
+      gs_layout              TYPE lvc_s_layo,
+      gs_toolbar             TYPE stb_button,
+      grid1                  TYPE REF TO cl_gui_alv_grid,
+      grid2                  TYPE REF TO cl_gui_alv_grid,
+      custom_container1      TYPE REF TO cl_gui_custom_container,
+      custom_container2      TYPE REF TO cl_gui_custom_container.
+
+
+*** Appearance and position of the data grid ***
+*** If you do not need the data grid, you can turn it off by commenting the grid part out ***
+
+*&---------------------------------------------------------------------*
+*&      Form  build_gridviewer
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM build_gridviewer .
+  DATA: repid LIKE sy-repid.
+
+  IF NOT grid1 IS INITIAL .
+    CALL METHOD grid1->free .
+    FREE grid1.
+  ENDIF .
+  repid = sy-repid.
+  IF docking IS INITIAL .
+    CREATE OBJECT docking
+      EXPORTING
+        repid                       = repid
+        dynnr                       = sy-dynnr
+*        side                        = cl_gui_docking_container=>dock_at_right
+       side                        = cl_gui_docking_container=>dock_at_bottom
+        extension                   = '200'
+      EXCEPTIONS
+        cntl_error                  = 1
+        cntl_system_error           = 2
+        create_error                = 3
+        lifetime_error              = 4
+        lifetime_dynpro_dynpro_link = 5.
+  ENDIF .
+
+  IF NOT docking IS INITIAL AND
+          grid1 IS INITIAL .
+    CREATE OBJECT grid1
+      EXPORTING
+        i_parent = docking.
+
+    REFRESH gt_ty_invoice_response .
+    SELECT * FROM yinvoice_tab INTO TABLE gt_ty_invoice_response.
+
+* Set a titlebar for the grid control
+*
+
+    gs_layout-cwidth_opt = 'X'.
+
+    CALL METHOD grid1->set_table_for_first_display
+      EXPORTING
+        i_structure_name = 'YINVOICE_TAB'
+        is_layout        = gs_layout
+      CHANGING
+        it_outtab        = gt_ty_invoice_response.
+
+  ENDIF .
+
+ENDFORM.                    " build_htmlviewer
+
+*END-OF-SELECTION.
+
+*** End of Grid appearance ***
+
+
+AT SELECTION-SCREEN.
+
+
+MY_UCOMM = SSCRFIELDS-UCOMM.
+
+*****************************
+
+*** Begin of Button_001 function ***
+
+
+IF SSCRFIELDS-ucomm = 'BUTTON_001'.
+
+TRY.
+
+
+DATA: o_client          TYPE REF TO if_http_client,
+      lv_uri            TYPE string.
+
+
+  CALL METHOD cl_http_client=>create_by_destination
+      EXPORTING
+        destination = 'YOUR_DESTINATION' " <- insert here your own destination name that was setup in t-code SM59
+      IMPORTING
+        client      = o_client
+      EXCEPTIONS
+        argument_not_found = 1
+        plugin_not_active  = 2
+        internal_error     = 3
+        others             = 4.
+
+    IF sy-subrc <> 0.
+      o_client->close( ).
+      RETURN. " Exit if there's an error
+    ENDIF.
+
+    " Setting specific path or adding parameters to the URL
+        lv_uri = '/api/v1/server/lightning/BTC/balance'.
+        o_client->request->set_header_field( name = '~request_uri' value = lv_uri ).
+
+
+    " Make a GET request
+      o_client->request->set_method( if_http_request=>co_request_method_get ).
+      o_client->send( timeout = if_http_client=>co_timeout_default ).
+      o_client->receive( ).
+
+
+    TYPES: BEGIN OF ty_offchain,
+             opening  TYPE string,
+             local    TYPE string,
+             remote   TYPE string,
+             closed   TYPE string,
+           END OF ty_offchain.
+
+    TYPES: BEGIN OF ty_onchain,
+             confirmed   TYPE string,
+             unconfirmed TYPE string,
+             reserved    TYPE string,
+           END OF ty_onchain.
+
+    TYPES: BEGIN OF ty_balance,
+             onchain  TYPE ty_onchain,
+             offchain TYPE ty_offchain,
+           END OF ty_balance.
+
+    DATA: lv_http_status    TYPE i,
+          lv_status_text    TYPE string,
+          lt_balance        TYPE ty_balance,
+          confirmed         TYPE string.
+
+    o_client->response->get_status( IMPORTING
+                                      code   = lv_http_status
+                                      reason = lv_status_text ).
+
+if lv_http_status = 200.
+
+*** Data is picked up and written into variable lv_result ***
+    DATA(lv_result) = o_client->response->get_cdata( ).
+
+*** Data is read via the reader function ***
+    DATA(lo_reader) = cl_sxml_string_reader=>create( cl_abap_codepage=>convert_to( lv_result ) ).
+
+*** Begin of Onchain Balance ***
+
+    DO.
+      DATA(lo_node_confirmed) = lo_reader->read_next_node( ).
+      IF lo_node_confirmed IS INITIAL.
+        EXIT.
+      ENDIF.
+
+      IF lo_node_confirmed->type = if_sxml_node=>co_nt_element_open.
+        "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+        DATA(lo_value_confirmed) = CAST if_sxml_open_element( lo_node_confirmed )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+        "Bezeichner des Keys
+        IF lo_value_confirmed IS BOUND AND lo_value_confirmed->get_value( ) = `confirmed`.
+          DATA(lo_value_node_confirmed) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+          "der Wert zum Key
+          DATA(lv_confirmed) = lo_value_node_confirmed->get_value( ).
+          EXIT.
+        ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+      ENDIF.
+    ENDDO.
+
+*** End of Onchain balance ***
+
+
+
+*** Begin of local balance ***
+
+    DO.
+      DATA(lo_node_local) = lo_reader->read_next_node( ).
+      IF lo_node_local IS INITIAL.
+        EXIT.
+      ENDIF.
+
+      IF lo_node_local->type = if_sxml_node=>co_nt_element_open.
+        "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+        DATA(lo_value_local) = CAST if_sxml_open_element( lo_node_local )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+        "Bezeichner des Keys
+        IF lo_value_local IS BOUND AND lo_value_local->get_value( ) = `local`.
+          DATA(lo_value_node_local) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+          "der Wert zum Key
+          DATA(lv_local) = lo_value_node_local->get_value( ).
+          EXIT.
+        ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+      ENDIF.
+    ENDDO.
+
+
+*** End of local balance ***
+
+
+*** Begin of remote balance ***
+
+    DO.
+      DATA(lo_node_remote) = lo_reader->read_next_node( ).
+      IF lo_node_remote IS INITIAL.
+        EXIT.
+      ENDIF.
+
+      IF lo_node_remote->type = if_sxml_node=>co_nt_element_open.
+        "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+        DATA(lo_value_remote) = CAST if_sxml_open_element( lo_node_remote )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+        "Bezeichner des Keys
+        IF lo_value_remote IS BOUND AND lo_value_remote->get_value( ) = `remote`.
+          DATA(lo_value_node_remote) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+          "der Wert zum Key
+          DATA(lv_remote) = lo_value_node_remote->get_value( ).
+          EXIT.
+        ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+      ENDIF.
+    ENDDO.
+
+
+*** End of remote balance ***
+
+
+DATA: lv_pricee type Z_AMOUNT,
+      lv_price_3 type Z_AMOUNT,
+      balance_in_usd type p DECIMALS 2,
+      lv_onchain type STRING,
+      lv_localsats type STRING.
+
+REPLACE ',' IN lv_onchain WITH '.'.
+REPLACE ',' IN lv_localsats WITH '.'.
+
+*Data(lv_price_r) = round( val = lv_pricee dec = 2 ).
+*balance_in_usd = lv_onchain / 100000000 * lv_pricee.
+
+lv_onchain = lv_confirmed / 100000000.
+lv_localsats = lv_local / 100000000000.
+balance_in_usd = lv_onchain * lv_pricee.
+
+
+*Data(balance_in_usd_r) = round( val = balance_in_usd dec = 2 ).
+
+WRITE lv_onchain TO Wallet.
+WRITE lv_localsats TO local.
+*WRITE lv_remote TO remote.
+*WRITE lv_pricee TO btc_usd.
+*WRITE balance_in_usd TO acc_bal.
+
+message 'Your balance is ' && ` ` && lv_onchain && ` ` && `satoshi.` type 'I'.
+
+
+endif.
+
+
+CATCH cx_root INTO DATA(e_txt).
+    WRITE: / e_txt->get_text( ).
+
+endtry.
+
+
+endif.
+
+
+*** End of Button_001 function ***
+
+*** Begin of Button_002 function ***
+
+if SSCRFIELDS-ucomm = 'BUTTON_002'.
+
+TRY.
+  CALL FUNCTION 'Z_GET_BTC_PRICE_CMC'
+ IMPORTING
+   LV_PRICE_3       = lv_pricee
+  EXCEPTIONS
+        http_communication_failure = 1
+        http_invalid_state = 2
+        http_processing_failed = 3
+        not_found = 4.
+  IF sy-subrc <> 0.
+      MESSAGE 'ERROR' type 'I'.
+ ENDIF.
+
+WRITE lv_pricee TO btc_usd.
+
+GET TIME STAMP FIELD stamp_1.
+WRITE stamp_1 TO text
+TIME ZONE SY-ZONLO.
+
+
+ CATCH cx_root INTO DATA(f_txt).
+    WRITE: / f_txt->get_text( ).
+
+ ENDTRY.
+ ENDIF.
+
+*** End of Button_002 function ***
+
+
+*** Begin of Button_003 function ***
+
+if SSCRFIELDS-ucomm = 'BUTTON_003'.
+
+balance_in_usd = Wallet * btc_usd.
+balance_in_usdln = local * btc_usd.
+
+WRITE balance_in_usd TO acc_bal.
+WRITE balance_in_usdln TO USDLN.
+
+endif.
+
+*** Button_003 wird hier betätigt und Code ausgeführt ENDE***
+
+*** End of Button_002 function ***
+
+
+*** Here happens the serialization of the data into the expected JSON format ***
+
+wa_YINV_TAB-metadata-item_desc = invoice.
+wa_YINV_TAB-metadata-buyer_email = email.
+  wa_YINV_TAB-amount = amount.
+  wa_YINV_TAB-currency = currency.
+
+  APPEND wa_YINV_TAB TO it_YINV_TAB.
+  CLEAR wa_YINV_TAB.
+
+*SELECT METADATA, ORDERID, AMOUNT, CURRENCY
+*            FROM  YINV_TAB
+*            INTO TABLE @it_YINV_TAB
+*            UP TO 1 ROWS.
+
+  READ TABLE it_YINV_TAB INTO wa_YINV_TAB INDEX 1.
+
+  DATA(ls_serialize) = VALUE ty_YINV_TAB( metadata = wa_YINV_TAB-metadata amount = wa_YINV_TAB-amount currency = wa_YINV_TAB-currency ).
+
+**buyer_email = wa_YINV_TAB-buyer_email rauskopiert
+
+  DATA(lv_json1) = /ui2/cl_json=>serialize( data        = ls_serialize
+                                            compress    = abap_true
+                                            pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+
+
+**cl_demo_output=>display( lv_json1 ). " uncomment this, to log output if it is right
+
+
+*** Begin of Button_004 ***
+
+  my_ucomm = sscrfields-ucomm.
+
+  CLEAR it_YINV_TAB.
+
+  IF sscrfields-ucomm = 'BUTTON_004'.
+
+    TRY.
+
+DATA: o_client_1         TYPE REF TO if_http_client,
+      lv_uri_1            TYPE string.
+
+  CALL METHOD cl_http_client=>create_by_destination
+      EXPORTING
+        destination = 'YOUR_DESTINATION'
+      IMPORTING
+        client      = o_client_1
+      EXCEPTIONS
+        argument_not_found = 1
+        plugin_not_active  = 2
+        internal_error     = 3
+        others             = 4.
+
+    IF sy-subrc <> 0.
+      o_client_1->close( ).
+      RETURN. " Exit if there's an error
+    ENDIF.
+
+" Setting specific path or adding parameters to the URL
+                                " Your individual StoreID of your btcpayserver needs to be inserted here below.
+        lv_uri_1 = '/api/v1/stores/*YourStoreId*/invoices'.
+        o_client_1->request->set_header_field( name = '~request_uri' value = lv_uri_1 ).
+*
+        IF o_client_1 IS BOUND.
+
+* set http method
+          o_client_1->request->set_method( if_http_request=>co_request_method_post ).
+          o_client_1->request->set_header_field( name  = 'Content-Type' value = 'application/json' ).
+          o_client_1->request->set_header_field( name = 'Accept' value = 'application/json' ).
+*o_client->request->set_form_field( name = 'data' value = gv_json_output ).
+          o_client_1->request->set_cdata( lv_json1 ).
+
+*set timeout
+          o_client_1->send( timeout = if_http_client=>co_timeout_default ).
+
+* read response, http_status, payload
+
+          o_client_1->receive( ).
+          DATA: lv_http_status_1 TYPE i,
+                lv_status_text_1 TYPE string.
+
+          o_client_1->response->get_status( IMPORTING
+                                            code = lv_http_status_1
+                                            reason = lv_status_text_1 ).
+
+          IF lv_http_status_1 = 200.
+
+
+*** Data is picked up and written into variable lv_result ***
+            DATA(lv_result_1) = o_client_1->response->get_cdata( ).
+
+*** Data is read via the reader function ***
+            DATA(lo_reader_1) = cl_sxml_string_reader=>create( cl_abap_codepage=>convert_to( lv_result_1 ) ).
+
+*** get id ***
+
+            DO.
+              DATA(lo_node_id) = lo_reader_1->read_next_node( ).
+              IF lo_node_id IS INITIAL.
+                EXIT.
+              ENDIF.
+
+              IF lo_node_id->type = if_sxml_node=>co_nt_element_open.
+                "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+                DATA(lo_value_id) = CAST if_sxml_open_element( lo_node_id )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+                "Bezeichner des Keys
+                IF lo_value_id IS BOUND AND lo_value_id->get_value( ) = `id`.
+                  DATA(lo_value_node_id) = CAST if_sxml_value( lo_reader_1->read_next_node( ) ).
+                  "der Wert zum Key
+                  DATA(lv_id) = lo_value_node_id->get_value( ).
+                  EXIT.
+                ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+              ENDIF.
+            ENDDO.
+
+
+*** get amount***
+
+            DO.
+              DATA(lo_node_amount) = lo_reader_1->read_next_node( ).
+              IF lo_node_amount IS INITIAL.
+                EXIT.
+              ENDIF.
+
+              IF lo_node_amount->type = if_sxml_node=>co_nt_element_open.
+                "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+                DATA(lo_value_amount) = CAST if_sxml_open_element( lo_node_amount )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+                "Bezeichner des Keys
+                IF lo_value_amount IS BOUND AND lo_value_amount->get_value( ) = `amount`.
+                  DATA(lo_value_node_amount) = CAST if_sxml_value( lo_reader_1->read_next_node( ) ).
+                  "der Wert zum Key
+                  DATA(lv_amount) = lo_value_node_amount->get_value( ).
+                  EXIT.
+                ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+              ENDIF.
+            ENDDO.
+
+*** get checkout link ***
+            DO.
+              DATA(lo_node_checkout) = lo_reader_1->read_next_node( ).
+              IF lo_node_checkout IS INITIAL.
+                EXIT.
+              ENDIF.
+
+              IF lo_node_checkout->type = if_sxml_node=>co_nt_element_open.
+                "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+                DATA(lo_value_checkout) = CAST if_sxml_open_element( lo_node_checkout )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+                "Bezeichner des Keys
+                IF lo_value_checkout IS BOUND AND lo_value_checkout->get_value( ) = `checkoutLink`.
+                  DATA(lo_value_node_checkout) = CAST if_sxml_value( lo_reader_1->read_next_node( ) ).
+                  "der Wert zum Key
+                  DATA(lv_checkoutLink) = lo_value_node_checkout->get_value( ).
+                  EXIT.
+                ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+              ENDIF.
+            ENDDO.
+
+*** get status ***
+
+            DO.
+              DATA(lo_node_status) = lo_reader_1->read_next_node( ).
+              IF lo_node_status IS INITIAL.
+                EXIT.
+              ENDIF.
+
+              IF lo_node_status->type = if_sxml_node=>co_nt_element_open.
+                "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+                DATA(lo_value_status) = CAST if_sxml_open_element( lo_node_status )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+                "Bezeichner des Keys
+                IF lo_value_status IS BOUND AND lo_value_status->get_value( ) = `status`.
+                  DATA(lo_value_node_status) = CAST if_sxml_value( lo_reader_1->read_next_node( ) ).
+                  "der Wert zum Key
+                  DATA(lv_status) = lo_value_node_status->get_value( ).
+                  EXIT.
+                ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+              ENDIF.
+            ENDDO.
+
+*** get currency ***
+
+            DO.
+              DATA(lo_node_currency) = lo_reader_1->read_next_node( ).
+              IF lo_node_currency IS INITIAL.
+                EXIT.
+              ENDIF.
+
+              IF lo_node_currency->type = if_sxml_node=>co_nt_element_open.
+                "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+                DATA(lo_value_currency) = CAST if_sxml_open_element( lo_node_currency )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+                "Bezeichner des Keys
+                IF lo_value_currency IS BOUND AND lo_value_currency->get_value( ) = `currency`.
+                  DATA(lo_value_node_currency) = CAST if_sxml_value( lo_reader_1->read_next_node( ) ).
+                  "der Wert zum Key
+                  DATA(lv_currency) = lo_value_node_currency->get_value( ).
+                  EXIT.
+                ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+              ENDIF.
+            ENDDO.
+
+DATA(lv_buyeremail) = ''.
+
+            MESSAGE 'Invoice created!' TYPE 'I'.
+
+
+            DATA: it_YINVOICE_TAB TYPE TABLE OF yinvoice_tab,
+                  wa_YINVOICE_TAB TYPE yinvoice_tab,
+                  lv_id_2 type p,
+                  v_lines type p.
+
+
+            DESCRIBE TABLE gt_ty_invoice_response LINES v_lines.
+
+            lv_id_2 = v_lines + 1.
+
+            wa_YINVOICE_TAB-INV_ID        = lv_id_2.
+*            wa_YINVOICE_TAB-ID            = wa_yinvoice_tab-id.
+            wa_YINVOICE_TAB-ID            = lv_id.
+            wa_YINVOICE_TAB-amount        = lv_amount.
+            wa_YINVOICE_TAB-crny          = lv_currency.
+            wa_YINVOICE_TAB-checkoutlink  = lv_checkoutLink.
+            wa_YINVOICE_TAB-status        = lv_status.
+            wa_YINVOICE_TAB-buyer_email   = lv_buyeremail.
+
+*            APPEND wa_YINVOICE_TAB TO it_yinvoice_tab.
+
+*APPEND wa_YINVOICE_TAB to IT_YINVOICE_TAB.
+
+            INSERT yinvoice_tab FROM wa_YINVOICE_TAB.
+            cl_demo_output=>display( wa_YINVOICE_TAB ).
+*            DELETE FROM YINVOICE_TAB.
+            CLEAR wa_YINVOICE_TAB-INV_ID.
+            CLEAR wa_YINVOICE_TAB-ID.
+            CLEAR lv_currency.
+            CLEAR lv_checkoutLink.
+            CLEAR lv_status.
+
+*read table IT_YINVOICE_TAB into IT_YINVOICE_TAB INDEX 1.
+
+            REFRESH gt_ty_invoice_response .
+
+*UPDATE YINVOICE_TAB FROM wa_YINVOICE_TAB.
+
+*select CHECKOUTLINK
+*        from @IT_YINVOICE_TAB AS string
+*        into table @gt_ty_invoice_response.
+
+          ENDIF.
+
+* close http connection
+          o_client_1->close( ).
+
+ENDIF.
+
+      CATCH cx_root INTO DATA(g_txt).
+        WRITE: / g_txt->get_text( ).
+    ENDTRY.
+  ENDIF.
+
+
+*** End of Button_004 function ***
+
+*** Begin of Button_005 function ***
+
+TYPES: BEGIN OF ty_YINVOICE_TAB,
+*         INV_ID      type count,
+          id           TYPE z_invoice_id_3,
+          status       TYPE z_metadata,
+*         amount       TYPE z_metadata,
+*         storeID      TYPE z_metadata,
+*         currency     TYPE z_metadata,
+*         checkoutLink TYPE z_metadata,
+       END OF ty_YINVOICE_TAB.
+
+*ty_YINVOICE_TAB TYPE TABLE OF yinvoice_tab with key id,
+
+DATA: ty_YINVOICE_TAB TYPE TABLE OF yinvoice_tab with key id,
+      it_YINVOICE_TAB2 TYPE TABLE OF YINVOICE_TAB,
+      it_YINVOICE_TAB4 TYPE TABLE OF ty_YINVOICE_TAB,
+      wa_YINVOICE_TAB4 TYPE ty_YINVOICE_TAB.
+
+
+select ID, STATUS
+    from YINVOICE_TAB
+    into table @it_YINVOICE_TAB4.
+
+
+if SSCRFIELDS-ucomm = 'BUTTON_005'.
+TRY.
+
+loop at it_YINVOICE_TAB4 into wa_YINVOICE_TAB4 where status = 'New'.
+
+
+DATA: o_client_2         TYPE REF TO if_http_client,
+      lv_uri_2            TYPE string.
+
+  CALL METHOD cl_http_client=>create_by_destination
+      EXPORTING
+        destination = 'YOUR_DESTINATION'
+      IMPORTING
+        client      = o_client_2
+      EXCEPTIONS
+        argument_not_found = 1
+        plugin_not_active  = 2
+        internal_error     = 3
+        others             = 4.
+
+    IF sy-subrc <> 0.
+      o_client_2->close( ).
+      RETURN. " Exit if there's an error
+    ENDIF.
+
+    " Setting specific path or adding parameters to the URL
+        lv_uri_2 = '/api/v1/stores/*YourStoreId*/invoices' && '/' && wa_YINVOICE_TAB4-id.
+        o_client_2->request->set_header_field( name = '~request_uri' value = lv_uri_2 ).
+
+
+    " Make a GET request
+      o_client_2->request->set_method( if_http_request=>co_request_method_get ).
+      o_client_2->send( timeout = if_http_client=>co_timeout_default ).
+      o_client_2->receive( ).
+
+if o_client_2 is bound.
+
+* set http_method
+
+o_client_2->request->set_method( if_http_request=>co_request_method_get ).
+
+* set header fields
+
+*o_client->request->set_header_field(
+
+*set timeout
+o_client_2->send( timeout = if_http_client=>co_timeout_default ).
+
+
+o_client_2->receive( ).
+
+
+Data: lv_http_status3 type i,
+      lv_status_text3 type string.
+
+
+
+o_client_2->response->get_status( IMPORTING
+                                  code = lv_http_status3
+                                  reason = lv_status_text3 ).
+
+*write: / 'HTTP_STATUS_CODE', lv_http_status.
+*write: / 'STATUS_TEXT:', lv_status_text.
+
+if lv_http_status3 = 200.
+
+*** Data is picked up and written into variable lv_result ***
+    DATA(lv_result_2) = o_client_2->response->get_cdata( ).
+
+*** Data is read here via reader function ***
+    DATA(lo_reader_2) = cl_sxml_string_reader=>create( cl_abap_codepage=>convert_to( lv_result_2 ) ).
+
+*** ID ***
+
+    DO.
+      DATA(lo_node_id2) = lo_reader_2->read_next_node( ).
+      IF lo_node_id2 IS INITIAL.
+        EXIT.
+      ENDIF.
+
+      IF lo_node_id2->type = if_sxml_node=>co_nt_element_open.
+        "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+        DATA(lo_value_id2) = CAST if_sxml_open_element( lo_node_id2 )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+        "Bezeichner des Keys
+        IF lo_value_id2 IS BOUND AND lo_value_id2->get_value( ) = `id`.
+          DATA(lo_value_node_id2) = CAST if_sxml_value( lo_reader_2->read_next_node( ) ).
+          "der Wert zum Key
+          DATA(lv_id2) = lo_value_node_id2->get_value( ).
+          EXIT.
+        ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+      ENDIF.
+    ENDDO.
+
+*** ID end ***
+
+*** status new or settled? ***
+
+    DO.
+      DATA(lo_node_status2) = lo_reader_2->read_next_node( ).
+      IF lo_node_status2 IS INITIAL.
+        EXIT.
+      ENDIF.
+
+      IF lo_node_status2->type = if_sxml_node=>co_nt_element_open.
+        "JSON-Objektbezeichner sind als Attribut 'name' dargestellt
+        DATA(lo_value_status2) = CAST if_sxml_open_element( lo_node_status2 )->get_attribute_value( `name` ).
+*        DATA(lo_local) = CAST if_sxml_open_element( lo_node )->get_attribute_value( `name` ).
+
+        "Bezeichner des Keys
+        IF lo_value_status2 IS BOUND AND lo_value_status2->get_value( ) = `status`.
+          DATA(lo_value_node_status2) = CAST if_sxml_value( lo_reader_2->read_next_node( ) ).
+          "der Wert zum Key
+          DATA(lv_test) = lo_value_node_status2->get_value( ).
+          EXIT.
+        ENDIF.
+*        IF lo_local IS BOUND AND lo_local->get_value( ) = `local`.
+*          DATA(lo_local_node) = CAST if_sxml_value( lo_reader->read_next_node( ) ).
+*          "der Wert zum Key
+*          DATA(lv_local_value) = lo_value_node->get_value( ).
+*          EXIT.
+*        ENDIF.
+      ENDIF.
+    ENDDO.
+
+*DATA: it_YINVOICE_TAB2 TYPE TABLE OF yinvoice_tab,
+*      wa_YINVOICE_TAB2 TYPE yinvoice_tab.
+*    cl_demo_output=>display( lv_id2 ).
+*    cl_demo_output=>display( lv_test ).
+
+Data: wa_yinvoice_tab5 type yinvoice_tab,
+      it_yinvoice_tab5 type table of yinvoice_tab.
+*    wa_YINVOICE_TAB5-
+
+SELECT CLIENT, INV_ID, ID, AMOUNT, CRNY, CHECKOUTLINK, STATUS
+  FROM YINVOICE_TAB
+  INTO TABLE @it_yinvoice_tab5.
+
+LOOP AT it_yinvoice_tab5 into wa_yinvoice_tab5 WHERE ID = lv_id2.
+
+      wa_yinvoice_tab5-status = lv_test.
+
+ENDLOOP.
+
+*    cl_demo_output=>display( wa_YINVOICE_TAB5 ).
+
+    MODIFY yinvoice_tab FROM wa_YINVOICE_TAB5.
+
+*    wa_YINVOICE_TAB4-status = lv_test.
+*    append wa_YINVOICE_TAB4 to it_YINVOICE_TAB5.
+
+*    cl_demo_output=>display( it_YINVOICE_TAB4 ).
+
+    endif.
+    endif.
+
+  endloop.
+
+  REFRESH gt_ty_invoice_response .
+
+  o_client_2->close( ).
+
+*cl_demo_output=>display( it_YINVOICE_TAB2 ).
+
+
+      CATCH cx_root INTO DATA(h_txt).
+        WRITE: / h_txt->get_text( ).
+    ENDTRY.
+endif.
+
+*** End of Button_005 function ***
+
+
+*** Begin of Button_006 ***
+
+IF SSCRFIELDS-ucomm = 'BUTTON_006'.
+
+TRY.
+CALL FUNCTION 'CALL_BROWSER'
+ EXPORTING
+   URL                          = '*YOUR STORE URL HERE' "<- your btcpayserver url must be inserted here
+***                               'https://YourStoreUrl.org:port/stores/YourStoreId/invoices' " it looks like this
+"   WINDOW_NAME                  = ' '
+"   NEW_WINDOW                   = ' '
+"   BROWSER_TYPE                 =
+"   CONTEXTSTRING                =
+" EXCEPTIONS
+"   FRONTEND_NOT_SUPPORTED       = 1
+"   FRONTEND_ERROR               = 2
+"   PROG_NOT_FOUND               = 3
+"   NO_BATCH                     = 4
+"   UNSPECIFIED_ERROR            = 5
+"   OTHERS                       = 6
+          .
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+CATCH cx_root INTO DATA(i_txt).
+        WRITE: / h_txt->get_text( ).
+    ENDTRY.
+endif.
+
+*** End of Button_006 ***
+
+
+AT SELECTION-SCREEN OUTPUT.
+
+
+PERFORM build_gridviewer .
+gv_ucomm = 'ONLI'.
+    APPEND gv_ucomm TO gt_ucomm.
+    CLEAR gv_ucomm.
+
+    CALL FUNCTION 'RS_SET_SELSCREEN_STATUS'
+    EXPORTING
+      p_status        = sy-pfkey
+*     P_PROGRAM       = ' '
+    TABLES
+      p_exclude       = gt_ucomm.
+
+START-OF-SELECTION.
