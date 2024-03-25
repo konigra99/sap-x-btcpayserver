@@ -20,17 +20,18 @@ If you want to achieve the same level of integration of btcpayserver into your S
    - btcpayserver comes with a bitcoin fullnode, a lightning node and a Store
 
 2. Configure your btcpayserver and make it reachable via the internet
-   2.1 Configure the following list:
-       - a Store (this is important for the API calls)
-       - a bitcoin fullnode
-       - a lightning node
-       - bitcoin and fiat exchange rate source (in my case, Kraken)
-       - the checkout appearance (in my case, in the look of SAP)
-       - a admin user and a API key (you can setup a dedicated "read only" and "create invoice"-only technical user with an API key for extra security)
-       - depending on your setup:
-           - give it an URL via your DNS provider (important for the Destination settings in SAP environment)
-           - a certificate for secure https connection (important for the transaction STRUST in your SAP environment)
-           - take care of your firewall within SAP (create an exception rule for your btcpayserver, so the SAP connection can be established)
+
+2.1 Configure the following list:
+   - a Store (this is important for the API calls)
+   - a bitcoin fullnode
+   - a lightning node
+   - bitcoin and fiat exchange rate source (in my case, Kraken)
+   - the checkout appearance (in my case, in the look of SAP)
+   - an admin user and a API key (you can setup a dedicated "read only" and "create invoice"-only technical user with an API key for extra security)
+   - depending on your setup:
+      - give it an URL via your DNS provider (important for the Destination settings in SAP environment)
+      - a certificate for secure https connection (important for the transaction STRUST in your SAP environment)
+      - take care of your firewall within SAP (create an exception rule for your btcpayserver, so the SAP connection can be established)
 
 4. Within your SAP environment, take the following steps:
    - create a Destination to your btcpayserver in t-code SM59
