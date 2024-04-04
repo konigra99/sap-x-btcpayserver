@@ -1,4 +1,4 @@
-FUNCTION Z_GET_BTC_PRICE_CMC.
+FUNCTION Z_GET_PRICE.
 *"----------------------------------------------------------------------
 *"*"Lokale Schnittstelle:
 *"  EXPORTING
