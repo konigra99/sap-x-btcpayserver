@@ -19,7 +19,7 @@ If you want to achieve the same level of integration of btcpayserver into your S
 1. Setup a btcpayserver instance (https://btcpayserver.org/) This is a free and open source payment processor software - no third party involved!
    - btcpayserver comes with a bitcoin fullnode, a lightning node and a Store
 
-2. Configure your btcpayserver and make it reachable via the internet
+2. Configure your btcpayserver and make it reachable via the internet.
    Configure the following list:
    - a Store on your btcpayserver (this is important for the API calls)
    - a bitcoin wallet
