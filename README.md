@@ -35,7 +35,7 @@ If you want to achieve the same level of integration of btcpayserver into your S
 
 4. Within your SAP environment, take the following steps:
    - create a Destination to your btcpayserver in t-code SM59
-   - import the your certificates into t-code STRUST and distribute it with t-code SMICM
+   - import your ssl-certificates into t-code STRUST and distribute it with t-code SMICM
    - create a package in SE80
    - Import the database tables in your environment
    - Import the program main code (insert your individual information where needed (Destination in t-code SM59, the URL, and StoreIDs))
