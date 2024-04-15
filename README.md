@@ -36,9 +36,15 @@ If you want to achieve the same level of integration of btcpayserver into your S
    - create a Destination to your btcpayserver in t-code SM59
    - import your ssl-certificates into t-code STRUST and distribute it with t-code SMICM
    - create a package in SE80
-   - Import the database tables in your environment
+   - create two database tables with the following fields
+     Name: YTABINVOICE
+     <img width="886" alt="image" src="https://github.com/konigra99/sap-x-btcpayserver/assets/164070213/c648ed3b-3b29-4970-b302-990547e1254a">
+     Name:ZTABINV
+     <img width="889" alt="image" src="https://github.com/konigra99/sap-x-btcpayserver/assets/164070213/7ad118d5-e69c-467c-bc7f-73a8c20bea0a">
+
    - Import the program main code (insert your individual information where needed (Destination in t-code SM59, the URL, and StoreIDs))
    - Import the function module for the price (Destination in t-code SM59, the URL, and StoreIDs)
+   - take care of the naming of the fields
 
 6. Test it!
 
