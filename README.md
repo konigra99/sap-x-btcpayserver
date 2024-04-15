@@ -1,5 +1,5 @@
 # sap-x-btcpayserver
-How to receive and invoice in bitcoin in your SAP S4/HANA system
+How to receive and invoice in bitcoin in your SAP S4/HANA on premise system
 
 Please visit my blogpost in the SAP Community, to read my thoughts around this integration.
 Leave a comment in the discussion and if you like it - please leave a like to make me happy!
