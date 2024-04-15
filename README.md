@@ -42,8 +42,8 @@ If you want to achieve the same level of integration of btcpayserver into your S
      Name:ZTABINV
      <img width="889" alt="image" src="https://github.com/konigra99/sap-x-btcpayserver/assets/164070213/7ad118d5-e69c-467c-bc7f-73a8c20bea0a">
 
-   - Import the program main code (insert your individual information where needed (Destination in t-code SM59, the URL, and StoreIDs))
-   - Import the function module for the price (Destination in t-code SM59, the URL, and StoreIDs)
+   - Import the program main code Z_BITCOIN (insert your individual information where needed (Destination in t-code SM59, the URL, and StoreIDs))
+   - Import the function module for the price Z_GET_PRICE (Destination in t-code SM59, the URL, and StoreIDs)
    - take care of the naming of the fields
 
 6. Test it!
